@@ -1,65 +1,224 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import useSWR from "swr";
+import { Session } from "@/lib/openf1";
+import type { TeamWithPoints } from "@/lib/teams";
+import { useLiveStandings } from "@/hooks/useLiveStandings";
+import { useSeasonPoints } from "@/hooks/useSeasonPoints";
+import { useTeams } from "@/hooks/useTeams";
+import { DriverCard } from "@/components/DriverCard";
+import { SessionBadge } from "@/components/SessionBadge";
+import { TeamCard } from "@/components/TeamCard";
+import { AddTeamModal } from "@/components/AddTeamModal";
+
+async function sessionFetcher(url: string) {
+  const res = await fetch(url);
+  if (res.status === 401) {
+    const err = new Error("auth_required") as Error & { status: number };
+    err.status = 401;
+    throw err;
+  }
+  if (!res.ok) throw new Error("fetch_error");
+  return res.json();
+}
 
 export default function Home() {
+  const [showAddTeam, setShowAddTeam] = useState(false);
+
+  const { data: session, isLoading: sessionLoading, error: sessionError } = useSWR<Session>(
+    "/api/f1/session",
+    sessionFetcher,
+    { refreshInterval: 30_000, shouldRetryOnError: false }
+  );
+
+  const { standings, isLoading: standingsLoading, authRequired } = useLiveStandings(
+    session?.session_key ?? null,
+    session?.meeting_key ?? null
+  );
+
+  const { pointsByDriver, drivers, sessionCount } = useSeasonPoints();
+  const { teams, addTeam, deleteTeam } = useTeams();
+
+  const needsApiKey = sessionError?.message === "auth_required" || authRequired;
+
+  // Enrich live standings with season driver metadata when current session data is sparse
+  const driverMetaMap = new Map(drivers.map((d) => [d.driverNumber, d]));
+  const enrichedStandings = standings.map((s) => {
+    const meta = driverMetaMap.get(s.driverNumber);
+    if (!meta) return s;
+    return {
+      ...s,
+      name: s.name.startsWith("Driver #") ? meta.name : s.name,
+      acronym: s.acronym.startsWith("#") ? meta.acronym : s.acronym,
+      teamName: s.teamName === "Unknown Team" ? meta.teamName : s.teamName,
+      teamColour: s.teamColour === "#6b7280" ? meta.teamColour : s.teamColour,
+      headshotUrl: s.headshotUrl ?? meta.headshotUrl,
+    };
+  });
+
+  const isLive = session?.status === "started";
+  const isEmpty = !standingsLoading && standings.length === 0;
+
+  const teamsWithPoints: TeamWithPoints[] = teams.map((team) => {
+    const driverPoints: Record<number, number> = {};
+    for (const n of team.driverNumbers) {
+      driverPoints[n] = pointsByDriver[n] ?? 0;
+    }
+    return {
+      ...team,
+      totalPoints: Object.values(driverPoints).reduce((s, p) => s + p, 0),
+      driverPoints,
+      drivers: team.driverNumbers
+        .map((n) => drivers.find((d) => d.driverNumber === n))
+        .filter(Boolean) as TeamWithPoints["drivers"],
+    };
+  });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="min-h-screen bg-neutral-950 text-white">
+      {/* Header */}
+      <header className="border-b border-neutral-800 bg-neutral-950 sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="bg-red-600 text-white text-xs font-black px-2 py-0.5 rounded">F1</div>
+            <h1 className="text-lg font-bold text-white">Live Points Tracker</h1>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {isLive && (
+              <span className="text-xs font-semibold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full border border-green-400/30 animate-pulse">
+                LIVE
+              </span>
+            )}
+            <SessionBadge session={session ?? null} isLoading={sessionLoading} />
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        {/* API key required banner */}
+        {needsApiKey && (
+          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 flex gap-3">
+            <span className="text-yellow-400 text-lg flex-shrink-0">⚠</span>
+            <div className="text-sm">
+              <p className="font-semibold text-yellow-300 mb-0.5">API key required during live sessions</p>
+              <p className="text-yellow-400/80">
+                OpenF1 restricts all access during a live session — a paid API key is required.{" "}
+                Get one at{" "}
+                <a
+                  href="https://openf1.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-yellow-300"
+                >
+                  openf1.org
+                </a>
+                , then add{" "}
+                <code className="font-mono bg-yellow-500/20 px-1 rounded">OPENF1_USERNAME</code>
+                {" "}and{" "}
+                <code className="font-mono bg-yellow-500/20 px-1 rounded">OPENF1_PASSWORD</code>
+                {" "}to your <code className="font-mono bg-yellow-500/20 px-1 rounded">.env.local</code> and restart.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Teams */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs uppercase tracking-widest text-neutral-500 font-semibold">
+              Teams
+            </h2>
+            <button
+              onClick={() => setShowAddTeam(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Team
+            </button>
+          </div>
+
+          {teamsWithPoints.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-neutral-700 p-6 text-center text-neutral-500 text-sm">
+              Create a team to track cumulative season points across drivers
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-3">
+              {teamsWithPoints.map((team, i) => (
+                <TeamCard
+                  key={team.id}
+                  team={team}
+                  sessionCount={sessionCount}
+                  onDelete={i >= 3 ? deleteTeam : undefined}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Race standings */}
+        <section>
+          <h2 className="text-xs uppercase tracking-widest text-neutral-500 font-semibold mb-3">
+            Race Standings
+          </h2>
+
+          {standingsLoading && (
+            <div className="space-y-2">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="h-16 rounded-xl bg-neutral-900 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {isEmpty && !sessionLoading && (
+            <div className="rounded-xl border border-dashed border-neutral-800 p-12 text-center">
+              <p className="text-neutral-500 text-sm">No race data available.</p>
+              <p className="text-neutral-600 text-xs mt-1">
+                Data will appear when a race session is active.
+              </p>
+            </div>
+          )}
+
+          {enrichedStandings.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {enrichedStandings.map((standing) => (
+                <DriverCard
+                  key={standing.driverNumber}
+                  standing={standing}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Points key */}
+        <section>
+          <h2 className="text-xs uppercase tracking-widest text-neutral-500 font-semibold mb-2">
+            Points System
+          </h2>
+          <div className="flex flex-wrap gap-1.5">
+            {[25, 18, 15, 12, 10, 8, 6, 4, 2, 1].map((pts, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-1.5 rounded-lg bg-neutral-900 border border-neutral-800 px-2.5 py-1.5 text-xs"
+              >
+                <span className="text-neutral-500">P{i + 1}</span>
+                <span className="font-bold text-white">{pts}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {showAddTeam && (
+        <AddTeamModal
+          drivers={drivers}
+          onAdd={(name, numbers) => { addTeam(name, numbers); setShowAddTeam(false); }}
+          onClose={() => setShowAddTeam(false)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }
