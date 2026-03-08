@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+
 import useSWR from "swr";
 import { Session } from "@/lib/openf1";
 import type { TeamWithPoints } from "@/lib/teams";
@@ -10,7 +10,7 @@ import { useTeams } from "@/hooks/useTeams";
 import { DriverCard } from "@/components/DriverCard";
 import { SessionBadge } from "@/components/SessionBadge";
 import { TeamCard } from "@/components/TeamCard";
-import { AddTeamModal } from "@/components/AddTeamModal";
+
 
 async function sessionFetcher(url: string) {
   const res = await fetch(url);
@@ -24,7 +24,6 @@ async function sessionFetcher(url: string) {
 }
 
 export default function Home() {
-  const [showAddTeam, setShowAddTeam] = useState(false);
 
   const { data: session, isLoading: sessionLoading, error: sessionError } = useSWR<Session>(
     "/api/f1/session",
@@ -38,7 +37,7 @@ export default function Home() {
   );
 
   const { pointsByDriver, drivers, sessionCount } = useSeasonPoints();
-  const { teams, addTeam, deleteTeam } = useTeams();
+  const { teams, deleteTeam } = useTeams();
 
   const needsApiKey = sessionError?.message === "auth_required" || authRequired;
 
@@ -125,19 +124,10 @@ export default function Home() {
 
         {/* Teams */}
         <section>
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-3">
             <h2 className="text-xs uppercase tracking-widest text-neutral-500 font-semibold">
               Teams
             </h2>
-            <button
-              onClick={() => setShowAddTeam(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Team
-            </button>
           </div>
 
           {teamsWithPoints.length === 0 ? (
@@ -212,13 +202,6 @@ export default function Home() {
         </section>
       </div>
 
-      {showAddTeam && (
-        <AddTeamModal
-          drivers={drivers}
-          onAdd={(name, numbers) => { addTeam(name, numbers); setShowAddTeam(false); }}
-          onClose={() => setShowAddTeam(false)}
-        />
-      )}
     </main>
   );
 }
