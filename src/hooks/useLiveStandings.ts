@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import useSWR from "swr";
 import { DriverStanding } from "@/lib/points";
 
@@ -15,6 +16,8 @@ async function fetcher(url: string) {
 }
 
 export function useLiveStandings(sessionKey: number | null, meetingKey?: number | null) {
+  const lastStandings = useRef<DriverStanding[]>([]);
+
   const { data, error, isLoading } = useSWR<DriverStanding[]>(
     sessionKey
       ? `/api/f1/standings?session_key=${sessionKey}${meetingKey ? `&meeting_key=${meetingKey}` : ""}`
@@ -23,7 +26,13 @@ export function useLiveStandings(sessionKey: number | null, meetingKey?: number 
     { refreshInterval: 5000, shouldRetryOnError: false }
   );
 
-  const authRequired = error?.message === "auth_required";
+  // Preserve the last non-empty standings so they stay visible after a race ends
+  if (data && data.length > 0) {
+    lastStandings.current = data;
+  }
 
-  return { standings: data ?? [], error, isLoading, authRequired };
+  const authRequired = error?.message === "auth_required";
+  const standings = (data && data.length > 0) ? data : lastStandings.current;
+
+  return { standings, error, isLoading, authRequired };
 }
