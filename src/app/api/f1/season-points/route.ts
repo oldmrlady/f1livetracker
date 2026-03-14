@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSessions, getDriversForMeeting, getPositionsForSession, OpenF1AuthError, F1_POINTS } from "@/lib/openf1";
+import { getSessions, getDriversForMeeting, getPositionsForSession, OpenF1AuthError, F1_POINTS, SPRINT_POINTS } from "@/lib/openf1";
 import type { DriverMeta, SeasonPointsResponse } from "@/lib/teams";
 
-function positionToPoints(position: number): number {
-  return F1_POINTS[position - 1] ?? 0;
+function positionToPoints(position: number, isSprint: boolean): number {
+  const table = isSprint ? SPRINT_POINTS : F1_POINTS;
+  return table[position - 1] ?? 0;
 }
 
 export async function GET() {
@@ -40,10 +41,12 @@ export async function GET() {
 
     // Aggregate points per driver across all sessions
     const pointsByDriver: Record<number, number> = {};
-    for (const result of positionResults) {
+    for (let i = 0; i < positionResults.length; i++) {
+      const result = positionResults[i];
       if (result.status !== "fulfilled") continue;
+      const isSprint = raceSessions[i].session_name.toLowerCase() === "sprint";
       for (const pos of result.value) {
-        const pts = positionToPoints(pos.position);
+        const pts = positionToPoints(pos.position, isSprint);
         pointsByDriver[pos.driver_number] = (pointsByDriver[pos.driver_number] ?? 0) + pts;
       }
     }

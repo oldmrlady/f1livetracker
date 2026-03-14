@@ -15,12 +15,12 @@ async function fetcher(url: string) {
   return res.json();
 }
 
-export function useLiveStandings(sessionKey: number | null, meetingKey?: number | null) {
+export function useLiveStandings(sessionKey: number | null, meetingKey?: number | null, sessionName?: string | null) {
   const lastStandings = useRef<DriverStanding[]>([]);
 
   const { data, error, isLoading } = useSWR<DriverStanding[]>(
     sessionKey
-      ? `/api/f1/standings?session_key=${sessionKey}${meetingKey ? `&meeting_key=${meetingKey}` : ""}`
+      ? `/api/f1/standings?session_key=${sessionKey}${meetingKey ? `&meeting_key=${meetingKey}` : ""}${sessionName ? `&session_name=${encodeURIComponent(sessionName)}` : ""}`
       : null,
     fetcher,
     { refreshInterval: 5000, shouldRetryOnError: false }

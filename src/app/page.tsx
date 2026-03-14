@@ -31,9 +31,12 @@ export default function Home() {
     { refreshInterval: 30_000, shouldRetryOnError: false }
   );
 
+  const isSprint = session?.session_name?.toLowerCase() === "sprint";
+
   const { standings, isLoading: standingsLoading, authRequired } = useLiveStandings(
     session?.session_key ?? null,
-    session?.meeting_key ?? null
+    session?.meeting_key ?? null,
+    session?.session_name ?? null
   );
 
   const { pointsByDriver, drivers, sessionCount } = useSeasonPoints();
@@ -186,10 +189,10 @@ export default function Home() {
         {/* Points key */}
         <section>
           <h2 className="text-xs uppercase tracking-widest text-neutral-500 font-semibold mb-2">
-            Points System
+            Points System{isSprint ? " — Sprint" : ""}
           </h2>
           <div className="flex flex-wrap gap-1.5">
-            {[25, 18, 15, 12, 10, 8, 6, 4, 2, 1].map((pts, i) => (
+            {(isSprint ? [8, 7, 6, 5, 4, 3, 2, 1] : [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]).map((pts, i) => (
               <div
                 key={i}
                 className="flex items-center gap-1.5 rounded-lg bg-neutral-900 border border-neutral-800 px-2.5 py-1.5 text-xs"

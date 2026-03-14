@@ -1,4 +1,4 @@
-import { F1_POINTS } from "./openf1";
+import { F1_POINTS, SPRINT_POINTS } from "./openf1";
 
 export interface DriverStanding {
   driverNumber: number;
@@ -12,8 +12,9 @@ export interface DriverStanding {
   gap: string;
 }
 
-export function positionToPoints(position: number): number {
-  return F1_POINTS[position - 1] ?? 0;
+export function positionToPoints(position: number, isSprint = false): number {
+  const table = isSprint ? SPRINT_POINTS : F1_POINTS;
+  return table[position - 1] ?? 0;
 }
 
 export function buildStandings(
@@ -25,7 +26,8 @@ export function buildStandings(
     team_name: string;
     team_colour: string;
     headshot_url: string | null;
-  }[]
+  }[],
+  isSprint = false
 ): DriverStanding[] {
   const driverMap = new Map(drivers.map((d) => [d.driver_number, d]));
 
@@ -41,7 +43,7 @@ export function buildStandings(
         teamColour: driver.team_colour ? `#${driver.team_colour}` : "#6b7280",
         headshotUrl: driver.headshot_url,
         position: p.position,
-        points: positionToPoints(p.position),
+        points: positionToPoints(p.position, isSprint),
         gap: "",
       };
     })

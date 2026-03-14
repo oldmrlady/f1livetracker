@@ -9,6 +9,8 @@ export async function GET(req: NextRequest) {
   }
 
   const meetingKey = req.nextUrl.searchParams.get("meeting_key");
+  const sessionName = req.nextUrl.searchParams.get("session_name") ?? "";
+  const isSprint = sessionName.toLowerCase() === "sprint";
 
   try {
     const [sessionDrivers, meetingDrivers, positions] = await Promise.all([
@@ -37,7 +39,7 @@ export async function GET(req: NextRequest) {
       if (!sessionNums.has(d.driver_number)) drivers.push(d);
     }
 
-    const standings = buildStandings(positions, drivers);
+    const standings = buildStandings(positions, drivers, isSprint);
     return NextResponse.json(standings, {
       headers: { "Cache-Control": "no-store" },
     });

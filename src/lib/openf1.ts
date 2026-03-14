@@ -48,6 +48,7 @@ async function getAuthHeader(): Promise<string | null> {
 }
 
 export const F1_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+export const SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1];
 export const FASTEST_LAP_POINT = 1;
 
 export interface Driver {
