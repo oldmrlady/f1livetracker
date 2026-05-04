@@ -78,7 +78,6 @@ export async function GET() {
       headshotUrl: d.headshot_url,
     }));
 
-    const cacheSeconds = liveSession ? 10 : 60;
     return NextResponse.json({
       pointsByDriver,
       drivers,
@@ -86,7 +85,7 @@ export async function GET() {
       sessionCount: raceSessions.length,
       hasLiveData: !!liveSession,
     } satisfies SeasonPointsResponse, {
-      headers: { "Cache-Control": `public, s-maxage=${cacheSeconds}, stale-while-revalidate=30` },
+      headers: { "Cache-Control": "no-store" },
     });
   } catch (e) {
     if (e instanceof OpenF1AuthError) {
