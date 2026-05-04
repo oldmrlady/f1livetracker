@@ -28,7 +28,7 @@ export default function Home() {
   const { data: session, isLoading: sessionLoading, error: sessionError } = useSWR<Session>(
     "/api/f1/session",
     sessionFetcher,
-    { refreshInterval: 30_000, shouldRetryOnError: false }
+    { refreshInterval: 30_000, shouldRetryOnError: (err) => err?.message !== "auth_required" }
   );
 
   const isSprint = session?.session_name?.toLowerCase() === "sprint";

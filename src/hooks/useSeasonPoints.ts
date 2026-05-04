@@ -20,7 +20,7 @@ export function useSeasonPoints() {
     fetcher,
     {
       refreshInterval: (data) => (data?.hasLiveData ? 30_000 : 0),
-      shouldRetryOnError: false,
+      shouldRetryOnError: (err) => err?.message !== "auth_required",
     }
   );
 

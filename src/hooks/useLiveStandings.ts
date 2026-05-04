@@ -23,7 +23,7 @@ export function useLiveStandings(sessionKey: number | null, meetingKey?: number 
       ? `/api/f1/standings?session_key=${sessionKey}${meetingKey ? `&meeting_key=${meetingKey}` : ""}${sessionName ? `&session_name=${encodeURIComponent(sessionName)}` : ""}`
       : null,
     fetcher,
-    { refreshInterval: 5000, shouldRetryOnError: false }
+    { refreshInterval: 5000, shouldRetryOnError: (err) => err?.message !== "auth_required" }
   );
 
   // Preserve the last non-empty standings so they stay visible after a race ends
