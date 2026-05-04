@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const meetingKey = req.nextUrl.searchParams.get("meeting_key");
   const sessionName = req.nextUrl.searchParams.get("session_name") ?? "";
-  const isSprint = sessionName.toLowerCase() === "sprint";
+  const isSprint = sessionName.toLowerCase().includes("sprint");
 
   try {
     const [sessionDrivers, meetingDrivers, positions] = await Promise.all([

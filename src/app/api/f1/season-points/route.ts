@@ -44,7 +44,7 @@ export async function GET() {
     for (let i = 0; i < positionResults.length; i++) {
       const result = positionResults[i];
       if (result.status !== "fulfilled") continue;
-      const isSprint = raceSessions[i].session_name.toLowerCase() === "sprint";
+      const isSprint = raceSessions[i].session_name.toLowerCase().includes("sprint");
       for (const pos of result.value) {
         const pts = positionToPoints(pos.position, isSprint);
         pointsByDriver[pos.driver_number] = (pointsByDriver[pos.driver_number] ?? 0) + pts;
