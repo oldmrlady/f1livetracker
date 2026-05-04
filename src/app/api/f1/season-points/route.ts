@@ -53,9 +53,12 @@ export async function GET() {
 
     // Get driver metadata from all sessions of each meeting (better coverage)
     const meetingKeys = [...new Set(raceSessions.map((s) => s.meeting_key))];
-    const meetingDriverArrays = await Promise.all(
+    const meetingDriverResults = await Promise.allSettled(
       meetingKeys.map((k) => getDriversForMeeting(k))
     );
+    const meetingDriverArrays = meetingDriverResults
+      .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof getDriversForMeeting>>> => r.status === "fulfilled")
+      .map((r) => r.value);
     // Merge all drivers across meetings, picking best data per driver number
     const bestDriverMap = new Map<number, (typeof meetingDriverArrays)[0][0]>();
     for (const arr of meetingDriverArrays) {
@@ -75,6 +78,7 @@ export async function GET() {
       headshotUrl: d.headshot_url,
     }));
 
+    const cacheSeconds = liveSession ? 10 : 60;
     return NextResponse.json({
       pointsByDriver,
       drivers,
@@ -82,7 +86,7 @@ export async function GET() {
       sessionCount: raceSessions.length,
       hasLiveData: !!liveSession,
     } satisfies SeasonPointsResponse, {
-      headers: { "Cache-Control": "no-store" },
+      headers: { "Cache-Control": `public, s-maxage=${cacheSeconds}, stale-while-revalidate=30` },
     });
   } catch (e) {
     if (e instanceof OpenF1AuthError) {
