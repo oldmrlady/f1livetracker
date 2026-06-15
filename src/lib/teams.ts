@@ -9,6 +9,12 @@ export interface DriverMeta {
   headshotUrl: string | null;
 }
 
+export interface DriverStandingEntry extends DriverMeta {
+  position: number;
+  points: number;
+  wins: number;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -25,7 +31,7 @@ export interface TeamWithPoints extends Team {
 export interface SeasonPointsResponse {
   pointsByDriver: Record<number, number>;
   drivers: DriverMeta[];
+  standings: DriverStandingEntry[];
   year: number;
-  sessionCount: number;
-  hasLiveData: boolean;
+  round: number;
 }
